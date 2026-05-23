@@ -3,7 +3,10 @@
 {% block page_title %}<i class="bi bi-calendar3 me-2"></i>月度报表{% endblock %}
 {% block content %}
 <div class="card mb-4">
-  <div class="card-header"><i class="bi bi-bar-chart-steps me-2"></i>月度收支趋势</div>
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-bar-chart-steps me-2"></i>月度收支趋势</span>
+    <a href="{{ url_for('export_monthly') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i> 导出Excel</a>
+  </div>
   <div class="card-body" style="height: 320px;">
     <canvas id="monthlyChart"></canvas>
   </div>
@@ -12,9 +15,9 @@
 <div class="card">
   <div class="card-header"><i class="bi bi-list-ul me-2"></i>月度明细</div>
   <div class="card-body p-0">
-    <div class="table-responsive">
+    <div class="table-responsive" style="max-height:400px;overflow-y:auto">
       <table class="table table-hover mb-0">
-        <thead><tr><th>月份</th><th>收入</th><th>支出</th><th>利润</th></tr></thead>
+        <thead class="sticky-top bg-white"><tr><th>月份</th><th>收入</th><th>支出</th><th>利润</th></tr></thead>
         <tbody>
           {% for m in months %}
           {% set r = monthly[m] %}

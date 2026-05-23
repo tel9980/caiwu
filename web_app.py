@@ -260,6 +260,172 @@ def api_income():
     dm = get_dm()
     return jsonify(get_income_data(dm))
 
+@app.route('/api/income/search')
+def api_income_search():
+    dm = get_dm()
+    q = request.args.get('q', '').lower()
+    data = get_income_data(dm)
+    if q:
+        data = [d for d in data if q in str(d.get('customer','')).lower() or q in str(d.get('date',''))]
+    return jsonify(data)
+
+@app.route('/api/expense/search')
+def api_expense_search():
+    dm = get_dm()
+    q = request.args.get('q', '').lower()
+    cat = request.args.get('cat', '')
+    data = get_expense_data(dm)
+    if q:
+        data = [d for d in data if q in str(d.get('category','')).lower() or q in str(d.get('supplier','')).lower()]
+    if cat:
+        data = [d for d in data if d.get('category') == cat]
+    return jsonify(data)
+
+@app.route('/api/income/delete', methods=['POST'])
+def api_income_delete():
+    dm = get_dm()
+    idx = request.json.get('index', -1)
+    ws = dm.sheet("收入记录")
+    row = idx + 4
+    if 4 <= row <= dm.last_row(ws):
+        ws.delete_rows(row)
+        dm.save()
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "无效行号"}), 400
+
+@app.route('/api/expense/delete', methods=['POST'])
+def api_expense_delete():
+    dm = get_dm()
+    idx = request.json.get('index', -1)
+    ws = dm.sheet("支出记录")
+    row = idx + 4
+    if 4 <= row <= dm.last_row(ws):
+        ws.delete_rows(row)
+        dm.save()
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "无效行号"}), 400
+
+@app.route('/api/customers')
+def api_customers():
+    dm = get_dm()
+    ws = dm.sheet("收入记录")
+    seen = set()
+    customers = []
+    for r in dm.read_rows(ws, start_row=4, end_col=3):
+        if r[2] and str(r[2]) not in seen:
+            seen.add(str(r[2]))
+            customers.append(str(r[2]))
+    return jsonify(sorted(customers))
+
+@app.route('/api/alerts')
+def api_alerts():
+    dm = get_dm()
+    alerts = []
+    arap = get_arap_data(dm)
+    for a in arap:
+        if a["type"] == "应收" and a["balance"] > 0:
+            if a["balance"] > 20000:
+                alerts.append({"type": "danger", "icon": "bi-exclamation-triangle", "msg": f"应收 {a['customer']}：¥{a['balance']:,.2f}（大额应收）"})
+            elif a["balance"] > 10000:
+                alerts.append({"type": "warning", "icon": "bi-exclamation-circle", "msg": f"应收 {a['customer']}：¥{a['balance']:,.2f}"})
+
+    ws = dm.sheet("材料进销存台账")
+    stock = {}
+    for r in dm.read_rows(ws, start_row=4, end_col=10):
+        name = str(r[1] or "")
+        in_qty = to_num(r[3]); out_qty = to_num(r[6])
+        bal = stock.get(name, 0) + in_qty - out_qty
+        stock[name] = bal
+    for name, bal in sorted(stock.items()):
+        if name and bal < 10:
+            alerts.append({"type": "warning" if bal > 0 else "danger", "icon": "bi-box", "msg": f"材料 {name}：库存 {bal}（{'缺货' if bal <= 0 else '低于安全线'}）"})
+
+    return jsonify(alerts[:8])
+
+@app.route('/export/profit')
+def export_profit():
+    dm = get_dm()
+    s = calc_summary(dm)
+    expenses = get_expense_data(dm)
+    by_cat = {}
+    for e in expenses:
+        c = e["category"] or "其他"
+        by_cat[c] = by_cat.get(c, 0) + (e["amount"] or 0)
+
+    from openpyxl import Workbook
+    from io import BytesIO
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "利润报表"
+    ws['A1'] = '利润报表'; ws.merge_cells('A1:C1')
+    ws['A3'] = '项目'; ws['B3'] = '金额'
+    ws['A4'] = '总收入'; ws['B4'] = s['total_inc']
+    ws['A5'] = '总支出'; ws['B5'] = s['total_exp']
+    ws['A6'] = '净利润'; ws['B6'] = s['profit']
+    ws['A8'] = '支出类别'; ws['B8'] = '金额'
+    row = 9
+    for cat, amt in sorted(by_cat.items(), key=lambda x: -x[1]):
+        ws.cell(row=row, column=1, value=cat)
+        ws.cell(row=row, column=2, value=amt)
+        row += 1
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf.read(), 200, {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': 'attachment; filename="利润报表.xlsx"'
+    }
+
+@app.route('/export/monthly')
+def export_monthly():
+    dm = get_dm()
+    incomes = get_income_data(dm)
+    expenses = get_expense_data(dm)
+    monthly = {}
+    for i in incomes:
+        d = i["date"]
+        if d:
+            ds = str(d) if not hasattr(d, 'strftime') else d.strftime('%Y-%m')
+            key = ds[:7]
+            monthly.setdefault(key, {"收入": 0, "支出": 0})
+            monthly[key]["收入"] += i["amount"] or 0
+    for e in expenses:
+        d = e["date"]
+        if d:
+            ds = str(d) if not hasattr(d, 'strftime') else d.strftime('%Y-%m')
+            key = ds[:7]
+            monthly.setdefault(key, {"收入": 0, "支出": 0})
+            monthly[key]["支出"] += e["amount"] or 0
+
+    from openpyxl import Workbook
+    from io import BytesIO
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "月度报表"
+    ws['A1'] = '月度报表'; ws.merge_cells('A1:D1')
+    ws['A3'] = '月份'; ws['B3'] = '收入'; ws['C3'] = '支出'; ws['D3'] = '利润'
+    row = 4
+    for m in sorted(monthly.keys()):
+        r = monthly[m]
+        ws.cell(row=row, column=1, value=m)
+        ws.cell(row=row, column=2, value=r["收入"])
+        ws.cell(row=row, column=3, value=r["支出"])
+        ws.cell(row=row, column=4, value=r["收入"] - r["支出"])
+        row += 1
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf.read(), 200, {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': 'attachment; filename="月度报表.xlsx"'
+    }
+
+@app.route('/_ah/health')
+def health():
+    return 'ok'
+
 if __name__ == '__main__':
     print(f"  Web版 {VERSION}")
     print(f"  数据文件: {EXCEL_FILE}")

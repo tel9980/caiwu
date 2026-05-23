@@ -1,19 +1,21 @@
 {% extends 'base.html' %}
-{% block title %}仪表盘 - 氧化加工厂财务系统{% endblock %}
+{% block title %}仪表盘{% endblock %}
 {% block page_title %}<i class="bi bi-speedometer2 me-2"></i>仪表盘{% endblock %}
 {% block content %}
+<div id="alertArea"></div>
+
 <div class="row g-3 mb-4">
   <div class="col-6 col-md-4 col-lg-2">
     <div class="card stat-card">
       <div class="icon text-primary"><i class="bi bi-cash-stack"></i></div>
-      <div class="number text-primary">{{ summary.inc_count }}</div>
+      <div class="number text-primary" id="incCount">{{ summary.inc_count }}</div>
       <div class="label">收入记录</div>
     </div>
   </div>
   <div class="col-6 col-md-4 col-lg-2">
     <div class="card stat-card">
       <div class="icon text-danger"><i class="bi bi-credit-card"></i></div>
-      <div class="number text-danger">{{ summary.exp_count }}</div>
+      <div class="number text-danger" id="expCount">{{ summary.exp_count }}</div>
       <div class="label">支出记录</div>
     </div>
   </div>
@@ -41,7 +43,7 @@
   <div class="col-6 col-md-4 col-lg-2">
     <div class="card stat-card">
       <div class="icon text-secondary"><i class="bi bi-calculator"></i></div>
-      <div class="number text-secondary">{{ summary.inc_count + summary.exp_count }}</div>
+      <div class="number text-secondary">{{ summary.inc_count + summary.exp_count + summary.ar_count }}</div>
       <div class="label">总笔数</div>
     </div>
   </div>
@@ -50,7 +52,12 @@
 <div class="row g-3 mb-4">
   <div class="col-md-8">
     <div class="card">
-      <div class="card-header"><i class="bi bi-pie-chart me-2"></i>月度收支趋势</div>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-pie-chart me-2"></i>月度收支趋势</span>
+        <div>
+          <a href="{{ url_for('export_monthly') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i> 导出Excel</a>
+        </div>
+      </div>
       <div class="card-body" style="height: 280px;">
         <canvas id="trendChart"></canvas>
       </div>
@@ -84,13 +91,26 @@
 
 {% block scripts %}
 <script>
+fetch('/api/alerts').then(r=>r.json()).then(alerts => {
+  if(alerts.length) {
+    let html = '<div class="mb-3">';
+    alerts.forEach(a => {
+      html += `<div class="alert alert-${a.type} py-2 mb-1 d-flex align-items-center">
+        <i class="${a.icon} me-2"></i>${a.msg}
+      </div>`;
+    });
+    html += '</div>';
+    document.getElementById('alertArea').innerHTML = html;
+  }
+});
+
 fetch('/api/summary').then(r=>r.json()).then(s=>{
   fetch('/api/income').then(r=>r.json()).then(data=>{
     const byMonth = {};
     data.forEach(d => {
       if(d.date) {
-        let m = d.date.substring(0,7);
-        byMonth[m] = (byMonth[m]||0) + (d.amount||0);
+        let ds = d.date.substring ? d.date.substring(0,7) : String(d.date).substring(0,7);
+        byMonth[ds] = (byMonth[ds]||0) + (d.amount||0);
       }
     });
     const labels = Object.keys(byMonth).sort();
@@ -104,8 +124,7 @@ fetch('/api/summary').then(r=>r.json()).then(s=>{
           data: values,
           borderColor: '#4caf50',
           backgroundColor: 'rgba(76,175,80,0.08)',
-          fill: true,
-          tension: .3
+          fill: true, tension: .3
         }]
       },
       options: {

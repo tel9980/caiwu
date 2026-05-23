@@ -14,7 +14,8 @@
           </div>
           <div class="mb-2">
             <label class="form-label small">客户名称</label>
-            <input type="text" name="customer" class="form-control form-control-sm" required>
+            <input type="text" name="customer" class="form-control form-control-sm" list="customerList" required autocomplete="off">
+            <datalist id="customerList"></datalist>
           </div>
           <div class="mb-2">
             <label class="form-label small">金额</label>
@@ -49,34 +50,80 @@
   </div>
   <div class="col-md-8">
     <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <span><i class="bi bi-list-ul me-2"></i>收入记录</span>
-        <span class="badge bg-primary rounded-pill">{{ data|length }} 笔</span>
+        <div class="d-flex gap-2">
+          <input type="text" id="searchInput" class="form-control form-control-sm" style="width:160px" placeholder="搜索客户/日期...">
+          <span class="badge bg-primary rounded-pill d-flex align-items-center" id="recCount">0 笔</span>
+        </div>
       </div>
       <div class="card-body p-0">
-        <div class="table-responsive">
-          <table class="table table-hover mb-0">
-            <thead><tr>
-              <th>日期</th><th>客户</th><th>金额</th><th>方式</th><th>发票</th><th>备注</th>
+        <div class="table-responsive" style="max-height:480px;overflow-y:auto">
+          <table class="table table-hover mb-0" id="incomeTable">
+            <thead class="sticky-top bg-white"><tr>
+              <th style="width:40px">#</th><th>日期</th><th>客户</th><th>金额</th><th>方式</th><th>发票</th><th style="width:50px"></th>
             </tr></thead>
-            <tbody>
-              {% for d in data %}
-              <tr>
-                <td>{{ d.date }}</td>
-                <td>{{ d.customer }}</td>
-                <td class="text-money">¥ {{ "%.2f"|format(d.amount) }}</td>
-                <td><span class="badge bg-light text-dark">{{ d.method }}</span></td>
-                <td>{% if d.invoice == '是' %}<span class="badge bg-success">已开票</span>{% else %}<span class="badge bg-secondary">未开票</span>{% endif %}</td>
-                <td class="text-muted small">{{ d.note or '' }}</td>
-              </tr>
-              {% else %}
-              <tr><td colspan="6" class="text-center text-muted py-4">暂无收入记录</td></tr>
-              {% endfor %}
-            </tbody>
+            <tbody id="incomeBody"></tbody>
           </table>
         </div>
       </div>
     </div>
   </div>
 </div>
+
+<div class="modal fade" id="confirmModal" tabindex="-1">
+  <div class="modal-dialog modal-sm"><div class="modal-content">
+    <div class="modal-body text-center py-4">
+      <i class="bi bi-exclamation-triangle text-warning" style="font-size:2rem"></i>
+      <p class="mt-2 mb-0">确认删除这条记录？</p>
+    </div>
+    <div class="modal-footer justify-content-center border-0 pt-0">
+      <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">取消</button>
+      <button class="btn btn-sm btn-danger" id="confirmDelete"><i class="bi bi-trash"></i> 删除</button>
+    </div>
+  </div></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let deleteIndex = -1;
+const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+
+fetch('/api/customers').then(r=>r.json()).then(list => {
+  const dl = document.getElementById('customerList');
+  list.forEach(n => { const o = document.createElement('option'); o.value = n; dl.appendChild(o) });
+});
+
+function loadData(q) {
+  const url = q ? `/api/income/search?q=${encodeURIComponent(q)}` : '/api/income';
+  fetch(url).then(r=>r.json()).then(data => {
+    const tbody = document.getElementById('incomeBody');
+    document.getElementById('recCount').textContent = data.length + ' 笔';
+    tbody.innerHTML = data.map((d,i) => `<tr>
+      <td class="text-muted small">${i+1}</td>
+      <td>${d.date ? (d.date.substring ? d.date.substring(0,10) : String(d.date).substring(0,10)) : ''}</td>
+      <td><strong>${d.customer||''}</strong></td>
+      <td class="text-money">¥ ${(d.amount||0).toLocaleString('zh-CN', {minimumFractionDigits:2})}</td>
+      <td><span class="badge bg-light text-dark">${d.method||''}</span></td>
+      <td>${d.invoice=='是'?'<span class="badge bg-success">已开票</span>':'<span class="badge bg-secondary">未开票</span>'}</td>
+      <td><button class="btn btn-outline-danger btn-sm py-0 px-1" onclick="del(${i})"><i class="bi bi-trash"></i></button></td>
+    </tr>`).join('');
+  });
+}
+
+function del(idx) { deleteIndex = idx; modal.show(); }
+document.getElementById('confirmDelete').onclick = function() {
+  fetch('/api/income/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({index:deleteIndex})})
+    .then(r=>r.json()).then(d=>{ if(d.ok) { modal.hide(); loadData(document.getElementById('searchInput').value); } });
+};
+
+let searchTimer;
+document.getElementById('searchInput').oninput = function() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadData(this.value), 300);
+};
+
+loadData('');
+</script>
 {% endblock %}
