@@ -419,6 +419,51 @@ def api_salary_delete():
         return jsonify({"ok": True})
     return jsonify({"ok": False, "error": "无效行号"}), 400
 
+@app.route('/api/salary/import_csv', methods=['POST'])
+def api_salary_import_csv():
+    dm = get_dm()
+    if 'file' not in request.files:
+        return jsonify({"ok": False, "error": "未上传文件"}), 400
+    f = request.files['file']
+    if not f.filename.endswith('.csv'):
+        return jsonify({"ok": False, "error": "请上传CSV文件"}), 400
+    content = f.read().decode('utf-8-sig')
+    reader = csv.reader(io.StringIO(content))
+    ws = dm.sheet("工资表")
+    count = 0
+    for row_data in reader:
+        if not row_data or not row_data[1].strip():
+            continue
+        if row_data[1].strip() in ('姓名', 'name'):
+            continue
+        name = row_data[1].strip()
+        base = float(row_data[2]) if len(row_data) > 2 and row_data[2].strip() else 0
+        overtime = float(row_data[3]) if len(row_data) > 3 and row_data[3].strip() else 0
+        bonus = float(row_data[4]) if len(row_data) > 4 and row_data[4].strip() else 0
+        gross = base + overtime + bonus
+        social = float(row_data[6]) if len(row_data) > 6 and row_data[6].strip() else round(gross * 0.1, 2)
+        accfund = float(row_data[7]) if len(row_data) > 7 and row_data[7].strip() else 0
+        tax = float(row_data[8]) if len(row_data) > 8 and row_data[8].strip() else 0
+        net = gross - social - accfund - tax
+        r = dm.next_row(ws)
+        dm.write_row(ws, r, [count + 1, name, base, overtime, bonus, gross, social, accfund, tax, net])
+        count += 1
+    dm.save()
+    return jsonify({"ok": True, "count": count})
+
+@app.route('/export/salary_template')
+def export_salary_template():
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(['序号', '姓名', '基本工资', '加班费', '奖金', '应发合计', '社保个人', '公积金个人', '个税', '实发合计'])
+    w.writerow([1, '张三', 3500, 560, 238, 4298, 430, 0, 0, 3868])
+    w.writerow([2, '李四', 4200, 300, 500, 5000, 500, 0, 0, 4500])
+    out = io.BytesIO(buf.getvalue().encode('utf-8-sig'))
+    return out.read(), 200, {
+        'Content-Type': 'text/csv; charset=utf-8-sig',
+        'Content-Disposition': 'attachment; filename="工资导入模板.csv"'
+    }
+
 @app.route('/material')
 def material():
     dm = get_dm()
@@ -466,6 +511,56 @@ def api_material_delete():
         dm.save()
         return jsonify({"ok": True})
     return jsonify({"ok": False, "error": "无效行号"}), 400
+
+@app.route('/api/material/import_csv', methods=['POST'])
+def api_material_import_csv():
+    dm = get_dm()
+    if 'file' not in request.files:
+        return jsonify({"ok": False, "error": "未上传文件"}), 400
+    f = request.files['file']
+    if not f.filename.endswith('.csv'):
+        return jsonify({"ok": False, "error": "请上传CSV文件"}), 400
+    content = f.read().decode('utf-8-sig')
+    reader = csv.reader(io.StringIO(content))
+    ws = dm.sheet("材料进销存台账")
+    count = 0
+    for row_data in reader:
+        if not row_data or not row_data[1].strip():
+            continue
+        if row_data[1].strip() in ('材料名称', 'name'):
+            continue
+        date_val = row_data[0].strip()
+        name = row_data[1].strip()
+        spec = row_data[2].strip() if len(row_data) > 2 else ''
+        in_qty = float(row_data[3]) if len(row_data) > 3 and row_data[3].strip() else 0
+        in_price = float(row_data[4]) if len(row_data) > 4 and row_data[4].strip() else 0
+        out_qty = float(row_data[6]) if len(row_data) > 6 and row_data[6].strip() else 0
+        out_price = float(row_data[7]) if len(row_data) > 7 and row_data[7].strip() else 0
+        in_amount = in_qty * in_price
+        out_amount = out_qty * out_price
+        r = dm.next_row(ws)
+        dm.write_row(ws, r, [
+            date_val, name, spec,
+            in_qty if in_qty else None, in_price if in_price else None, in_amount if in_amount else None,
+            out_qty if out_qty else None, out_price if out_price else None, out_amount if out_amount else None,
+            None
+        ])
+        count += 1
+    dm.save()
+    return jsonify({"ok": True, "count": count})
+
+@app.route('/export/material_template')
+def export_material_template():
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(['日期', '材料名称', '规格', '入库数量', '入库单价', '入库金额', '出库数量', '出库单价', '出库金额', '结存数量'])
+    w.writerow(['2026-06-01', '亚钠', '25kg/袋', 20, 180, 3600, '', '', '', ''])
+    w.writerow(['2026-06-02', '片碱', '25kg/袋', '', '', '', 10, 200, 2000, ''])
+    out = io.BytesIO(buf.getvalue().encode('utf-8-sig'))
+    return out.read(), 200, {
+        'Content-Type': 'text/csv; charset=utf-8-sig',
+        'Content-Disposition': 'attachment; filename="材料导入模板.csv"'
+    }
 
 @app.route('/api/summary')
 def api_summary():
@@ -797,6 +892,10 @@ def api_backup_delete():
 @app.route('/_ah/health')
 def health():
     return 'ok'
+
+@app.route('/data-import')
+def data_import():
+    return render_template('import.html', version=VERSION)
 
 if __name__ == '__main__':
     print(f"  Web版 {VERSION}")

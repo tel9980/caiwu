@@ -3,6 +3,18 @@
 {% block page_title %}<i class="bi bi-speedometer2 me-2"></i>仪表盘{% endblock %}
 {% block content %}
 <div id="alertArea"></div>
+<div id="setupBanner" class="mb-3" style="display:none">
+  <div class="card border-primary border-opacity-25 bg-primary bg-opacity-10">
+    <div class="card-body d-flex align-items-center gap-3">
+      <i class="bi bi-rocket-takeoff text-primary fs-1"></i>
+      <div class="flex-grow-1">
+        <h6 class="mb-1"><i class="bi bi-star-fill text-warning"></i> 欢迎使用氧化加工厂财务管理系统！</h6>
+        <p class="mb-0 small text-muted">系统暂无数据，请先导入历史数据开始使用。点击右侧按钮前往导入中心。</p>
+      </div>
+      <a href="{{ url_for('data_import') }}" class="btn btn-primary btn-sm flex-shrink-0"><i class="bi bi-download"></i> 前往导入数据</a>
+    </div>
+  </div>
+</div>
 
 <div class="row g-3 mb-4">
   <div class="col-6 col-md-4 col-lg-2">
@@ -104,7 +116,12 @@ fetch('/api/alerts').then(r=>r.json()).then(alerts => {
   }
 });
 
-fetch('/api/summary').then(r=>r.json()).then(s=>{
+fetch('/api/summary').then(r=>r.json()).then(s => {
+  if (s.inc_count === 0 && s.exp_count === 0) {
+    document.getElementById('setupBanner').style.display = '';
+  }
+  return s;
+}).then(s=>{
   fetch('/api/income').then(r=>r.json()).then(data=>{
     const byMonth = {};
     data.forEach(d => {
@@ -115,24 +132,26 @@ fetch('/api/summary').then(r=>r.json()).then(s=>{
     });
     const labels = Object.keys(byMonth).sort();
     const values = labels.map(l=>byMonth[l]);
-    new Chart(document.getElementById('trendChart'), {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: '收入',
-          data: values,
-          borderColor: '#4caf50',
-          backgroundColor: 'rgba(76,175,80,0.08)',
-          fill: true, tension: .3
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: { y: { beginAtZero: true, ticks: { callback: v => '¥'+v.toLocaleString() } } }
-      }
-    });
+    if (labels.length) {
+      new Chart(document.getElementById('trendChart'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: '收入',
+            data: values,
+            borderColor: '#4caf50',
+            backgroundColor: 'rgba(76,175,80,0.08)',
+            fill: true, tension: .3
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { callback: v => '¥'+v.toLocaleString() } } }
+        }
+      });
+    }
   });
 });
 </script>
