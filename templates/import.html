@@ -125,10 +125,91 @@
     </div>
   </div>
 </div>
-{% endblock %}
 
+<div class="card border-danger border-opacity-50 mt-3">
+  <div class="card-header bg-danger bg-opacity-10 text-danger">
+    <i class="bi bi-exclamation-triangle fs-5 me-2"></i>一键初始化系统
+  </div>
+  <div class="card-body">
+    <div class="row g-3 align-items-center">
+      <div class="col-md-8">
+        <p class="mb-1 small">
+          <strong class="text-danger">清空所有数据</strong>，恢复为全新状态。执行前自动备份，可随时恢复。
+        </p>
+        <div class="small text-muted" id="statsArea"><i class="bi bi-arrow-clockwise"></i> 加载数据概览...</div>
+      </div>
+      <div class="col-md-4 text-md-end">
+        <button class="btn btn-outline-danger" onclick="showInitModal()"><i class="bi bi-eraser"></i> 一键初始化</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="initModal" tabindex="-1">
+  <div class="modal-dialog modal-sm"><div class="modal-content">
+    <div class="modal-body text-center py-4">
+      <i class="bi bi-exclamation-triangle text-danger" style="font-size:2.5rem"></i>
+      <p class="fw-bold mt-2 mb-1 text-danger">确定要初始化系统？</p>
+      <p class="small text-muted mb-3">所有数据将被清除，操作不可撤销！<br>（系统会自动创建备份）</p>
+      <input type="text" id="initConfirm" class="form-control form-control-sm text-center" placeholder="输入 确认初始化">
+    </div>
+    <div class="modal-footer justify-content-center border-0 pt-0">
+      <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">取消</button>
+      <button class="btn btn-sm btn-danger" id="btnInit" disabled><i class="bi bi-eraser"></i> 确认初始化</button>
+    </div>
+  </div></div>
+</div>
+
+<div class="modal fade" id="initSuccessModal" tabindex="-1">
+  <div class="modal-dialog modal-sm"><div class="modal-content">
+    <div class="modal-body text-center py-4">
+      <i class="bi bi-check-circle text-success" style="font-size:2.5rem"></i>
+      <p class="fw-bold mt-2 mb-1">初始化成功！</p>
+      <p class="small text-muted mb-0" id="initBackupInfo"></p>
+    </div>
+    <div class="modal-footer justify-content-center border-0 pt-0">
+      <button class="btn btn-sm btn-primary" data-bs-dismiss="modal" onclick="window.location.reload()">确定</button>
+    </div>
+  </div></div>
+</div>
+{% endblock %}
 {% block scripts %}
 <script>
+fetch('/api/system/stats').then(r=>r.json()).then(s => {
+  const total = s.income + s.expense + s.arap + s.salary + s.material;
+  document.getElementById('statsArea').innerHTML = total
+    ? `当前数据：收入 <strong>${s.income}</strong> 笔 · 支出 <strong>${s.expense}</strong> 笔 · 应收应付 <strong>${s.arap}</strong> 条 · 工资 <strong>${s.salary}</strong> 人 · 材料 <strong>${s.material}</strong> 条`
+    : '系统暂无数据，当前为全新状态';
+});
+
+const initModal = new bootstrap.Modal(document.getElementById('initModal'));
+const successModal = new bootstrap.Modal(document.getElementById('initSuccessModal'));
+
+function showInitModal() {
+  document.getElementById('initConfirm').value = '';
+  document.getElementById('btnInit').disabled = true;
+  initModal.show();
+}
+
+document.getElementById('initConfirm').oninput = function() {
+  document.getElementById('btnInit').disabled = this.value.trim() !== '确认初始化';
+};
+
+document.getElementById('btnInit').onclick = function() {
+  const btn = this; btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 初始化中...';
+  fetch('/api/system/init', {method:'POST'})
+    .then(r=>r.json()).then(d => {
+      btn.disabled = false; btn.innerHTML = '<i class="bi bi-eraser"></i> 确认初始化';
+      initModal.hide();
+      if (d.ok) {
+        document.getElementById('initBackupInfo').textContent = `自动备份：${d.backup}`;
+        successModal.show();
+      } else {
+        alert('初始化失败：' + (d.error||'未知错误'));
+      }
+    });
+};
+
 document.querySelectorAll('.csv-upload').forEach(form => {
   form.onsubmit = function(e) {
     e.preventDefault();

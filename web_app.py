@@ -889,6 +889,46 @@ def api_backup_delete():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
+@app.route('/api/system/stats')
+def api_system_stats():
+    dm = get_dm()
+    incomes = get_income_data(dm)
+    expenses = get_expense_data(dm)
+    arap = get_arap_data(dm)
+    salaries = get_salary_data(dm)
+    materials = get_material_data(dm)
+    return jsonify({
+        "income": len(incomes), "expense": len(expenses),
+        "arap": len(arap), "salary": len(salaries), "material": len(materials)
+    })
+
+@app.route('/api/system/init', methods=['POST'])
+def api_system_init():
+    try:
+        dm = get_dm()
+        # 自动备份
+        ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_path = os.path.join(BACKUP_DIR, f'初始化前自动备份_{ts}.xlsx')
+        dm.save()
+        shutil.copy2(EXCEL_FILE, backup_path)
+
+        # 清空各表数据行（保留表头）
+        sheets = [
+            ("收入记录", 4), ("支出记录", 4),
+            ("应收应付", 4), ("材料进销存台账", 4),
+            ("工资表", 5)
+        ]
+        for name, header_row in sheets:
+            ws = dm.sheet(name)
+            last = dm.last_row(ws)
+            if last >= header_row:
+                ws.delete_rows(header_row, last - header_row + 1)
+
+        dm.save()
+        return jsonify({"ok": True, "backup": os.path.basename(backup_path)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
 @app.route('/_ah/health')
 def health():
     return 'ok'
