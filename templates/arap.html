@@ -1,34 +1,192 @@
 {% extends 'base.html' %}
 {% block title %}应收应付{% endblock %}
-{% block page_title %}<i class="bi bi-arrow-left-right me-2"></i>应收应付{% endblock %}
+{% block page_title %}<i class="bi bi-arrow-left-right me-2"></i>应收应付管理{% endblock %}
 {% block content %}
-<div class="card">
-  <div class="card-header d-flex justify-content-between align-items-center">
-    <span><i class="bi bi-list-ul me-2"></i>应收应付列表</span>
-    <span class="badge bg-warning rounded-pill">{{ data|length }} 条</span>
+<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-plus-circle me-2"></i>添加应收记录</div>
+      <div class="card-body">
+        <form id="arapForm">
+          <div class="mb-2">
+            <label class="form-label small">客户名称</label>
+            <input type="text" id="customer" class="form-control form-control-sm" required>
+          </div>
+          <div class="row g-1 mb-2">
+            <div class="col-6">
+              <label class="form-label small">期初应收</label>
+              <input type="number" id="opening" class="form-control form-control-sm" value="0" step="0.01">
+            </div>
+            <div class="col-6">
+              <label class="form-label small">本期增加</label>
+              <input type="number" id="increase" class="form-control form-control-sm" value="0" step="0.01">
+            </div>
+            <div class="col-6">
+              <label class="form-label small">本期收款</label>
+              <input type="number" id="receipt" class="form-control form-control-sm" value="0" step="0.01">
+            </div>
+            <div class="col-6">
+              <label class="form-label small">对冲减少</label>
+              <input type="number" id="offset" class="form-control form-control-sm" value="0" step="0.01">
+            </div>
+          </div>
+          <div class="mb-2">
+            <input type="text" id="note" class="form-control form-control-sm" placeholder="备注">
+          </div>
+          <div class="mb-2 small text-muted" id="endingPreview">期末应收 = 0.00</div>
+          <button type="submit" class="btn btn-warning btn-sm w-100"><i class="bi bi-check2"></i> 添加</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header"><i class="bi bi-upload me-2"></i>CSV批量导入</div>
+      <div class="card-body">
+        <p class="small text-muted mb-2">按模板格式上传CSV文件，自动批量导入</p>
+        <div class="d-flex gap-2">
+          <a href="{{ url_for('export_arap_template') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i> 下载模板</a>
+        </div>
+        <form id="csvForm" class="mt-2">
+          <input type="file" id="csvFile" accept=".csv" class="form-control form-control-sm mb-2">
+          <button type="submit" class="btn btn-success btn-sm w-100"><i class="bi bi-upload"></i> 上传并导入</button>
+        </form>
+        <div id="importResult" class="mt-2 small"></div>
+      </div>
+    </div>
   </div>
-  <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table table-hover mb-0">
-        <thead><tr>
-          <th>客户/供应商</th><th>类型</th><th>金额</th><th>已收/付</th><th>余额</th><th>备注</th>
-        </tr></thead>
-        <tbody>
-          {% for d in data %}
-          <tr>
-            <td>{{ d.customer }}</td>
-            <td>{% if d.type == '应收' %}<span class="badge bg-warning">应收</span>{% else %}<span class="badge bg-info">应付</span>{% endif %}</td>
-            <td class="text-money">¥ {{ "%.2f"|format(d.amount) }}</td>
-            <td class="text-money">¥ {{ "%.2f"|format(d.paid) }}</td>
-            <td class="text-money {% if d.balance > 0 %}text-warning{% endif %}">¥ {{ "%.2f"|format(d.balance) }}</td>
-            <td class="text-muted small">{{ d.note or '' }}</td>
-          </tr>
-          {% else %}
-          <tr><td colspan="6" class="text-center text-muted py-4">暂无数据</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
+
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-list-ul me-2"></i>应收应付列表</span>
+        <div class="d-flex gap-2">
+          <input type="text" id="searchInput" class="form-control form-control-sm" style="width:150px" placeholder="搜索客户...">
+          <span class="badge bg-warning rounded-pill d-flex align-items-center" id="recCount">0 条</span>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive" style="max-height:520px;overflow-y:auto">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="sticky-top bg-white"><tr>
+              <th>客户</th>
+              <th class="text-end">期初</th>
+              <th class="text-end">增加</th>
+              <th class="text-end">收款</th>
+              <th class="text-end">对冲</th>
+              <th class="text-end">期末</th>
+              <th>备注</th>
+              <th style="width:40px"></th>
+            </tr></thead>
+            <tbody id="arapBody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 </div>
+
+<div class="modal fade" id="confirmModal" tabindex="-1">
+  <div class="modal-dialog modal-sm"><div class="modal-content">
+    <div class="modal-body text-center py-4">
+      <i class="bi bi-exclamation-triangle text-warning" style="font-size:2rem"></i>
+      <p class="mt-2 mb-0">确认删除此条记录？</p>
+    </div>
+    <div class="modal-footer justify-content-center border-0 pt-0">
+      <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">取消</button>
+      <button class="btn btn-sm btn-danger" id="confirmDelete"><i class="bi bi-trash"></i> 删除</button>
+    </div>
+  </div></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let deleteIndex = -1;
+const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+
+function loadData(q) {
+  const url = q ? `/api/arap/search?q=${encodeURIComponent(q)}` : '/api/arap';
+  fetch(url).then(r=>r.json()).then(data => {
+    document.getElementById('recCount').textContent = data.length + ' 条';
+    document.getElementById('arapBody').innerHTML = data.map((d,i) => `<tr>
+      <td><strong>${d.customer}</strong></td>
+      <td class="text-end text-money">${fmt(d.opening)}</td>
+      <td class="text-end text-money text-primary">${fmt(d.increase)}</td>
+      <td class="text-end text-money text-success">${fmt(d.receipt)}</td>
+      <td class="text-end text-money">${fmt(d.offset)}</td>
+      <td class="text-end text-money fw-bold ${d.ending > 0 ? 'text-warning' : 'text-success'}">${fmt(d.ending)}</td>
+      <td class="small text-muted">${d.note||''}</td>
+      <td><button class="btn btn-outline-danger btn-sm py-0 px-1" onclick="del(${i})"><i class="bi bi-trash"></i></button></td>
+    </tr>`).join('');
+  });
+}
+function fmt(v) { return '¥' + Number(v||0).toLocaleString('zh-CN', {minimumFractionDigits:2}); }
+
+function del(idx) { deleteIndex = idx; modal.show(); }
+document.getElementById('confirmDelete').onclick = function() {
+  fetch('/api/arap/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({index:deleteIndex})})
+    .then(r=>r.json()).then(d=>{ if(d.ok) { modal.hide(); loadData(document.getElementById('searchInput').value); } });
+};
+
+let searchTimer;
+document.getElementById('searchInput').oninput = function() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadData(this.value), 300);
+};
+
+document.getElementById('arapForm').onsubmit = function(e) {
+  e.preventDefault();
+  const body = {
+    customer: document.getElementById('customer').value,
+    opening: parseFloat(document.getElementById('opening').value) || 0,
+    increase: parseFloat(document.getElementById('increase').value) || 0,
+    receipt: parseFloat(document.getElementById('receipt').value) || 0,
+    offset: parseFloat(document.getElementById('offset').value) || 0,
+    note: document.getElementById('note').value
+  };
+  fetch('/api/arap/add', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})
+    .then(r=>r.json()).then(d => {
+      if(d.ok) {
+        document.getElementById('arapForm').reset();
+        ['opening','increase','receipt','offset'].forEach(id => document.getElementById(id).value = '0');
+        document.getElementById('note').value = '';
+        loadData(document.getElementById('searchInput').value);
+        updatePreview();
+      } else {
+        alert(d.error || '添加失败');
+      }
+    });
+};
+
+function updatePreview() {
+  const op = parseFloat(document.getElementById('opening').value) || 0;
+  const inc = parseFloat(document.getElementById('increase').value) || 0;
+  const rec = parseFloat(document.getElementById('receipt').value) || 0;
+  const off = parseFloat(document.getElementById('offset').value) || 0;
+  document.getElementById('endingPreview').textContent = '期末应收 = ' + fmt(op + inc - rec - off);
+}
+document.querySelectorAll('#arapForm input[type="number"]').forEach(el => el.oninput = updatePreview);
+updatePreview();
+
+document.getElementById('csvForm').onsubmit = function(e) {
+  e.preventDefault();
+  const file = document.getElementById('csvFile').files[0];
+  if(!file) return alert('请选择CSV文件');
+  const fd = new FormData();
+  fd.append('file', file);
+  document.getElementById('importResult').innerHTML = '<span class="text-muted">导入中...</span>';
+  fetch('/api/arap/import_csv', {method:'POST', body:fd})
+    .then(r=>r.json()).then(d => {
+      if(d.ok) {
+        document.getElementById('importResult').innerHTML = `<span class="text-success"><i class="bi bi-check-circle"></i> 成功导入 ${d.count} 条</span>`;
+        document.getElementById('csvFile').value = '';
+        loadData(document.getElementById('searchInput').value);
+      } else {
+        document.getElementById('importResult').innerHTML = `<span class="text-danger"><i class="bi bi-x-circle"></i> ${d.error||'导入失败'}</span>`;
+      }
+    });
+};
+
+loadData('');
+</script>
 {% endblock %}

@@ -64,11 +64,17 @@ def get_arap_data(dm):
     data = []
     for r in rows:
         if r[0]:
-            balance = to_num(r[5])  # 期末应收 = 余额
+            opening = to_num(r[1])
+            increase = to_num(r[2])
+            receipt = to_num(r[3])
+            offset = to_num(r[4])
+            ending = to_num(r[5])
             data.append({
                 "customer": str(r[0] or ""), "type": "应收",
-                "amount": balance, "paid": to_num(r[3]),
-                "balance": balance, "note": str(r[6] or "")
+                "opening": opening, "increase": increase,
+                "receipt": receipt, "offset": offset,
+                "ending": ending, "note": str(r[6] or ""),
+                "balance": ending
             })
     return data
 
@@ -420,6 +426,101 @@ def export_monthly():
     return buf.read(), 200, {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': 'attachment; filename="月度报表.xlsx"'
+    }
+
+@app.route('/api/arap')
+def api_arap():
+    dm = get_dm()
+    return jsonify(get_arap_data(dm))
+
+@app.route('/api/arap/search')
+def api_arap_search():
+    dm = get_dm()
+    q = request.args.get('q', '').lower()
+    data = get_arap_data(dm)
+    if q:
+        data = [d for d in data if q in d.get('customer', '').lower()]
+    return jsonify(data)
+
+@app.route('/api/arap/add', methods=['POST'])
+def api_arap_add():
+    dm = get_dm()
+    ws = dm.sheet("应收应付")
+    j = request.json
+    if not j or not j.get('customer'):
+        return jsonify({"ok": False, "error": "客户名称为空"}), 400
+
+    opening = to_num(j.get('opening'))
+    increase = to_num(j.get('increase'))
+    receipt = to_num(j.get('receipt'))
+    offset = to_num(j.get('offset'))
+    ending = opening + increase - receipt - offset
+
+    row = dm.next_row(ws)
+    dm.write_row(ws, row, [
+        j['customer'], opening, increase, receipt, offset, ending,
+        j.get('note', '')
+    ])
+    dm.save()
+    return jsonify({"ok": True, "ending": ending})
+
+@app.route('/api/arap/delete', methods=['POST'])
+def api_arap_delete():
+    dm = get_dm()
+    idx = request.json.get('index', -1)
+    ws = dm.sheet("应收应付")
+    row = idx + 4
+    if 4 <= row <= dm.last_row(ws):
+        ws.delete_rows(row)
+        dm.save()
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "无效行号"}), 400
+
+@app.route('/api/arap/import_csv', methods=['POST'])
+def api_arap_import_csv():
+    dm = get_dm()
+    if 'file' not in request.files:
+        return jsonify({"ok": False, "error": "未上传文件"}), 400
+    f = request.files['file']
+    if not f.filename.endswith('.csv'):
+        return jsonify({"ok": False, "error": "请上传CSV文件"}), 400
+
+    import csv, io
+    content = f.read().decode('utf-8-sig')
+    reader = csv.reader(io.StringIO(content))
+    ws = dm.sheet("应收应付")
+    count = 0
+    for row_data in reader:
+        if not row_data or not row_data[0].strip():
+            continue
+        customer = row_data[0].strip()
+        if customer in ('客户名称', '客户名', 'customer'):
+            continue
+        opening = to_num(row_data[1]) if len(row_data) > 1 else 0
+        increase = to_num(row_data[2]) if len(row_data) > 2 else 0
+        receipt = to_num(row_data[3]) if len(row_data) > 3 else 0
+        offset = to_num(row_data[4]) if len(row_data) > 4 else 0
+        ending = opening + increase - receipt - offset
+        note = row_data[6].strip() if len(row_data) > 6 else ''
+        r = dm.next_row(ws)
+        dm.write_row(ws, r, [customer, opening, increase, receipt, offset, ending, note])
+        count += 1
+
+    dm.save()
+    return jsonify({"ok": True, "count": count})
+
+@app.route('/export/arap_template')
+def export_arap_template():
+    import csv, io
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(['客户名称', '期初应收', '本期增加', '本期收款', '对冲减少', '备注'])
+    w.writerow(['示例-华鑫铝业', 5000, 30000, 25000, 0, '期初余额5000，本期增加30000'])
+    w.writerow(['示例-永达五金', 3000, 20000, 18000, 0, ''])
+    out = io.BytesIO(buf.getvalue().encode('utf-8-sig'))
+    return out.read(), 200, {
+        'Content-Type': 'text/csv; charset=utf-8-sig',
+        'Content-Disposition': 'attachment; filename="应收应付导入模板.csv"'
     }
 
 @app.route('/_ah/health')
