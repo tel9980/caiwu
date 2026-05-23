@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}材料台账{% endblock %}
+{% block page_title %}<i class="bi bi-box-seam me-2"></i>材料台账{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-list-ul me-2"></i>材料明细</span>
+    <span class="badge bg-success rounded-pill">{{ data|length }} 条</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead><tr>
+          <th>日期</th><th>材料名称</th><th>规格</th><th>数量</th><th>单价</th><th>金额</th>
+        </tr></thead>
+        <tbody>
+          {% for d in data %}
+          <tr>
+            <td>{{ d.date }}</td>
+            <td><strong>{{ d.name }}</strong></td>
+            <td>{{ d.spec }}</td>
+            <td>{{ d.qty }}</td>
+            <td class="text-money">¥ {{ "%.2f"|format(d.price) }}</td>
+            <td class="text-money">¥ {{ "%.2f"|format(d.amount) }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-center text-muted py-4">暂无材料数据</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

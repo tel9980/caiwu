@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}工资管理{% endblock %}
+{% block page_title %}<i class="bi bi-people me-2"></i>工资管理{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-list-ul me-2"></i>工资记录</span>
+    <span class="badge bg-info rounded-pill">{{ data|length }} 人</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead><tr>
+          <th>姓名</th><th>基本工资</th><th>加班费</th><th>奖金</th><th>社保</th><th>个税</th><th>实发</th>
+        </tr></thead>
+        <tbody>
+          {% for d in data %}
+          <tr>
+            <td><strong>{{ d.name }}</strong></td>
+            <td class="text-money">¥ {{ "%.2f"|format(d.base) }}</td>
+            <td class="text-money">¥ {{ "%.2f"|format(d.overtime) }}</td>
+            <td class="text-money">¥ {{ "%.2f"|format(d.bonus) }}</td>
+            <td class="text-money">¥ {{ "%.2f"|format(d.social) }}</td>
+            <td class="text-money">¥ {{ "%.2f"|format(d.tax) }}</td>
+            <td class="text-money text-success"><strong>¥ {{ "%.2f"|format(d.net) }}</strong></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="text-center text-muted py-4">暂无工资数据</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

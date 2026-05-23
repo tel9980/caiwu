@@ -6,21 +6,36 @@
 
 ## 一、系统选择
 
-| 特性 | Excel VBA版 | Python独立版 |
-|------|-------------|-------------|
-| 运行环境 | WPS/Excel（需启用宏） | Python 3.8+ |
-| 安装 | 导入VBA模块 | `pip install openpyxl` |
-| 跨平台 | 仅Windows | Windows/Mac/Linux |
-| 界面 | Excel对话框 | 彩色终端界面 |
-| 功能数量 | 52个宏 | 45个功能 |
-| 数据格式 | Excel | Excel（完全兼容） |
-| 版本 | V24.0 | V18.0 界面优化版 |
+| 特性 | Excel VBA版 | Python独立版 | **Web版** |
+|------|-------------|-------------|-----------|
+| 运行环境 | WPS/Excel（需启用宏） | Python 3.8+ | **浏览器（电脑/手机）** |
+| 安装 | 导入VBA模块 | `pip install openpyxl` | `pip install flask openpyxl` |
+| 跨平台 | 仅Windows | Windows/Mac/Linux | **Windows/Mac/Linux/手机** |
+| 界面 | Excel对话框 | 彩色终端界面 | **现代化Web UI** |
+| 功能数量 | 52个宏 | 45个功能 | **核心功能Web版** |
+| 数据格式 | Excel | Excel（完全兼容） | **Excel（完全兼容）** |
+| 版本 | V24.0 | V18.0 界面优化版 | **V18.0 Web版** |
 
-**数据完全互通**，可在两个版本间无缝切换。
+**数据完全互通**，三个版本共用同一份 Excel 数据文件。
 
 ---
 
-## 二、Python版 (V18.0 界面优化版)
+## 二、Web版 (V18.0)
+
+现代化浏览器界面，支持电脑和手机访问。
+
+```bash
+pip install flask openpyxl
+python web_app.py
+```
+
+或双击 `启动WEB系统.bat`，自动打开浏览器。
+
+**功能页面**：仪表盘 / 收入管理 / 支出管理 / 应收应付 / 利润报表 / 资产负债表 / 月度报表 / 工资管理 / 材料台账
+
+---
+
+## 三、Python版 (V18.0 界面优化版)
 
 ### 快速开始
 
@@ -122,7 +137,7 @@ python 氧化加工厂财务系统.py
 
 ---
 
-## 三、Excel VBA版 (V24.0)
+## 四、Excel VBA版 (V24.0)
 
 ### 快速入门
 
@@ -166,13 +181,17 @@ OneKeyInit / QuickAddOrder / QuickAddReceipt / QuickAddPayment / MonthEndClose /
 
 ---
 
-## 四、配套文件
+## 五、配套文件
 
 | 文件 | 说明 |
 |------|------|
 | 氧化加工厂管理系统V18.xlsx | Excel版主系统 |
 | 氧化加工厂财务系统.py | Python版主程序 |
+| **web_app.py** | **Web版主程序（Flask）** |
 | 启动财务系统.bat | Python版启动脚本 |
+| **启动WEB系统.bat** | **Web版启动脚本** |
+| templates/ | Web版HTML模板 |
+| static/ | Web版静态资源 |
 | VBA宏代码_V18.0_界面优化版.bas | VBA源代码（UTF-8） |
 | VBA宏代码_V18.0_界面优化版_GBK.bas | VBA源代码（GBK，WPS用） |
 | VBA宏代码_WPS兼容版_V12.2_导入包.zip | WPS VBA导入包 |
@@ -188,7 +207,7 @@ OneKeyInit / QuickAddOrder / QuickAddReceipt / QuickAddPayment / MonthEndClose /
 
 ---
 
-## 五、注意事项
+## 六、注意事项
 
 1. **VBA版**：先导入`VBA宏代码_V18.0_界面优化版.bas`，再启用宏
 2. **Python版**：首次运行自动安装依赖，数据保存在 `财务数据/财务数据.xlsx`
@@ -198,13 +217,14 @@ OneKeyInit / QuickAddOrder / QuickAddReceipt / QuickAddPayment / MonthEndClose /
 
 ---
 
-## 六、更新日志
+## 七、更新日志
 
 | 版本 | 说明 | 日期 |
 |------|------|------|
 | V24.0 | Excel版：快捷录入、批量收款、智能对账、每日简报、微信收款 | 2025-06 |
 | V23.0 | Excel版：客户对账单、供应商对账、预警提醒、账龄分析 | 2025 |
 | V22.0 | Excel版：报表自动取数、税务计算、一键报表 | 2025 |
+| V18.0 | 新增Web版：Flask+Boostrap，浏览器仪表盘/报表 | 2026-05 |
 | V18.0 | Python界面优化版：彩色终端、仪表盘、45功能完整版 | 2026-05 |
 | V17.0 | Python版首次完整实现 | 2026-05 |
 

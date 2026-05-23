@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block title %}利润报表{% endblock %}
+{% block page_title %}<i class="bi bi-bar-chart-line me-2"></i>利润报表{% endblock %}
+{% block content %}
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card stat-card">
+      <div class="icon text-primary"><i class="bi bi-cash-stack"></i></div>
+      <div class="number text-primary">¥ {{ "%.2f"|format(summary.total_inc) }}</div>
+      <div class="label">总收入</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card">
+      <div class="icon text-danger"><i class="bi bi-credit-card"></i></div>
+      <div class="number text-danger">¥ {{ "%.2f"|format(summary.total_exp) }}</div>
+      <div class="label">总支出</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card">
+      <div class="icon text-success"><i class="bi bi-graph-up-arrow"></i></div>
+      <div class="number text-success">¥ {{ "%.2f"|format(summary.profit) }}</div>
+      <div class="label">净利润</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card">
+      <div class="icon text-info"><i class="bi bi-percent"></i></div>
+      <div class="number text-info">{{ "%.1f"|format(summary.profit_rate) }}%</div>
+      <div class="label">利润率</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-pie-chart me-2"></i>支出构成</div>
+      <div class="card-body" style="height: 300px;">
+        <canvas id="expenseChart"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-list-ul me-2"></i>支出明细</div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead><tr><th>类别</th><th>金额</th><th>占比</th></tr></thead>
+            <tbody>
+              {% for cat, amt in categories %}
+              <tr>
+                <td>{{ cat }}</td>
+                <td class="text-money">¥ {{ "%.2f"|format(amt) }}</td>
+                <td>{{ "%.1f"|format(amt / summary.total_exp * 100) if summary.total_exp else 0 }}%</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+new Chart(document.getElementById('expenseChart'), {
+  type: 'doughnut',
+  data: {
+    labels: [{% for cat, amt in categories %}'{{ cat }}',{% endfor %}],
+    datasets: [{
+      data: [{% for cat, amt in categories %}{{ amt }},{% endfor %}],
+      backgroundColor: ['#4caf50','#f44336','#2196f3','#ff9800','#9c27b0','#00bcd4','#e91e63','#3f51b5','#009688','#ff5722','#795548','#607d8b'],
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'right', labels: { font: { size: 11 } } } }
+  }
+});
+</script>
+{% endblock %}

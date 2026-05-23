@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}氧化加工厂财务系统{% endblock %}</title>
+  <link href="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.bootcdn.net/ajax/libs/bootstrap-icons/1.11.2/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    :root { --sidebar-width: 220px; }
+    body { font-size: .9rem; background: #f5f6fa; overflow-x: hidden; }
+    .sidebar {
+      position: fixed; top: 0; left: 0; width: var(--sidebar-width); height: 100vh;
+      background: linear-gradient(180deg, #1a237e 0%, #283593 100%);
+      color: #fff; z-index: 100; overflow-y: auto;
+    }
+    .sidebar .brand { padding: 18px 16px; font-size: 1rem; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,.1); }
+    .sidebar .brand small { font-weight: 400; opacity: .7; font-size: .75rem; }
+    .sidebar .nav-link {
+      color: rgba(255,255,255,.7); padding: 10px 18px; border-left: 3px solid transparent;
+      transition: all .2s; font-size: .88rem;
+    }
+    .sidebar .nav-link:hover, .sidebar .nav-link.active {
+      color: #fff; background: rgba(255,255,255,.08); border-left-color: #5c6bc0;
+    }
+    .sidebar .nav-link i { margin-right: 10px; width: 18px; text-align: center; }
+    .sidebar .section-title { padding: 12px 18px 4px; font-size: .7rem; text-transform: uppercase; opacity: .5; letter-spacing: 1px; }
+    .main-content { margin-left: var(--sidebar-width); padding: 20px 24px; min-height: 100vh; }
+    .page-header { margin-bottom: 20px; }
+    .page-header h4 { font-weight: 600; color: #1a237e; margin: 0; }
+    .card { border: none; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.06); margin-bottom: 16px; }
+    .card-header {
+      background: #fff; border-bottom: 1px solid #eef; font-weight: 600;
+      padding: 14px 20px; border-radius: 10px 10px 0 0 !important;
+    }
+    .stat-card { padding: 20px; text-align: center; }
+    .stat-card .number { font-size: 1.6rem; font-weight: 700; }
+    .stat-card .label { font-size: .8rem; color: #888; margin-top: 4px; }
+    .stat-card .icon { font-size: 2rem; margin-bottom: 8px; }
+    .table th { font-weight: 600; font-size: .82rem; color: #555; border-top: none; background: #f8f9fc; }
+    .table td { vertical-align: middle; font-size: .85rem; }
+    .badge { font-weight: 500; padding: 4px 10px; }
+    .flash-msg { position: fixed; top: 16px; right: 16px; z-index: 9999; min-width: 250px; }
+    .btn-sm { font-size: .8rem; }
+    .text-money { font-family: 'Courier New', monospace; font-weight: 600; }
+    @media (max-width: 768px) {
+      .sidebar { width: 100%; height: auto; position: relative; }
+      .main-content { margin-left: 0; }
+      .sidebar .nav { display: flex; flex-wrap: wrap; }
+      .sidebar .nav-link { padding: 6px 12px; font-size: .8rem; }
+      .sidebar .section-title { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <div class="brand">
+      <i class="bi bi-building"></i> 氧化加工厂
+      <br><small>{{ version }}</small>
+    </div>
+    <div class="section-title">概览</div>
+    <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
+      <i class="bi bi-speedometer2"></i>仪表盘
+    </a>
+    <div class="section-title">日常记账</div>
+    <a href="{{ url_for('income') }}" class="nav-link {% if request.endpoint == 'income' %}active{% endif %}">
+      <i class="bi bi-cash-stack"></i>收入管理
+    </a>
+    <a href="{{ url_for('expense') }}" class="nav-link {% if request.endpoint == 'expense' %}active{% endif %}">
+      <i class="bi bi-credit-card-2-front"></i>支出管理
+    </a>
+    <a href="{{ url_for('arap') }}" class="nav-link {% if request.endpoint == 'arap' %}active{% endif %}">
+      <i class="bi bi-arrow-left-right"></i>应收应付
+    </a>
+    <div class="section-title">报表分析</div>
+    <a href="{{ url_for('profit_report') }}" class="nav-link {% if request.endpoint == 'profit_report' %}active{% endif %}">
+      <i class="bi bi-bar-chart-line"></i>利润报表
+    </a>
+    <a href="{{ url_for('balance_report') }}" class="nav-link {% if request.endpoint == 'balance_report' %}active{% endif %}">
+      <i class="bi bi-layout-three-columns"></i>资产负债表
+    </a>
+    <a href="{{ url_for('monthly_report') }}" class="nav-link {% if request.endpoint == 'monthly_report' %}active{% endif %}">
+      <i class="bi bi-calendar3"></i>月度报表
+    </a>
+    <div class="section-title">其他</div>
+    <a href="{{ url_for('salary') }}" class="nav-link {% if request.endpoint == 'salary' %}active{% endif %}">
+      <i class="bi bi-people"></i>工资管理
+    </a>
+    <a href="{{ url_for('material') }}" class="nav-link {% if request.endpoint == 'material' %}active{% endif %}">
+      <i class="bi bi-box-seam"></i>材料台账
+    </a>
+  </div>
+
+  <div class="main-content">
+    <div class="page-header d-flex justify-content-between align-items-center">
+      <h4>{% block page_title %}仪表盘{% endblock %}</h4>
+      <div>
+        <span class="text-muted small"><i class="bi bi-calendar3"></i> {{ today().strftime('%Y-%m-%d') }}</span>
+      </div>
+    </div>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-msg">
+          {% for category, msg in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show py-2">
+              {{ msg }} <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </div>
+
+  <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script>
+    setTimeout(() => { document.querySelectorAll('.flash-msg .alert').forEach(el => { el.remove() }) }, 4000);
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

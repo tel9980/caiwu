@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}应收应付{% endblock %}
+{% block page_title %}<i class="bi bi-arrow-left-right me-2"></i>应收应付{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-list-ul me-2"></i>应收应付列表</span>
+    <span class="badge bg-warning rounded-pill">{{ data|length }} 条</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead><tr>
+          <th>客户/供应商</th><th>类型</th><th>金额</th><th>已收/付</th><th>余额</th><th>备注</th>
+        </tr></thead>
+        <tbody>
+          {% for d in data %}
+          <tr>
+            <td>{{ d.customer }}</td>
+            <td>{% if d.type == '应收' %}<span class="badge bg-warning">应收</span>{% else %}<span class="badge bg-info">应付</span>{% endif %}</td>
+            <td class="text-money">¥ {{ "%.2f"|format(d.amount) }}</td>
+            <td class="text-money">¥ {{ "%.2f"|format(d.paid) }}</td>
+            <td class="text-money {% if d.balance > 0 %}text-warning{% endif %}">¥ {{ "%.2f"|format(d.balance) }}</td>
+            <td class="text-muted small">{{ d.note or '' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-center text-muted py-4">暂无数据</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

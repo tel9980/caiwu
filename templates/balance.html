@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}资产负债表{% endblock %}
+{% block page_title %}<i class="bi bi-layout-three-columns me-2"></i>资产负债表{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-bank me-2"></i>资产</div>
+      <div class="card-body">
+        <table class="table table-borderless mb-0">
+          <tr><td>应收账款</td><td class="text-end text-money">¥ {{ "%.2f"|format(summary.total_ar) }}</td></tr>
+          <tr class="border-top"><td><strong>资产合计</strong></td><td class="text-end text-money"><strong>¥ {{ "%.2f"|format(summary.total_ar) }}</strong></td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-piggy-bank me-2"></i>负债及所有者权益</div>
+      <div class="card-body">
+        <table class="table table-borderless mb-0">
+          <tr><td>应付账款</td><td class="text-end text-money">¥ {{ "%.2f"|format(summary.total_ap) }}</td></tr>
+          <tr><td>未分配利润</td><td class="text-end text-money">¥ {{ "%.2f"|format(summary.profit) }}</td></tr>
+          <tr class="border-top"><td><strong>负债及权益合计</strong></td><td class="text-end text-money"><strong>¥ {{ "%.2f"|format(summary.total_ap + summary.profit) }}</strong></td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

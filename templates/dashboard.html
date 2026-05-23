@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% block title %}仪表盘 - 氧化加工厂财务系统{% endblock %}
+{% block page_title %}<i class="bi bi-speedometer2 me-2"></i>仪表盘{% endblock %}
+{% block content %}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-4 col-lg-2">
+    <div class="card stat-card">
+      <div class="icon text-primary"><i class="bi bi-cash-stack"></i></div>
+      <div class="number text-primary">{{ summary.inc_count }}</div>
+      <div class="label">收入记录</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-lg-2">
+    <div class="card stat-card">
+      <div class="icon text-danger"><i class="bi bi-credit-card"></i></div>
+      <div class="number text-danger">{{ summary.exp_count }}</div>
+      <div class="label">支出记录</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-lg-2">
+    <div class="card stat-card">
+      <div class="icon text-warning"><i class="bi bi-arrow-left-right"></i></div>
+      <div class="number text-warning">{{ summary.ar_count }}</div>
+      <div class="label">应收应付</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-lg-2">
+    <div class="card stat-card">
+      <div class="icon text-info"><i class="bi bi-people"></i></div>
+      <div class="number text-info">{{ summary.sal_count }}</div>
+      <div class="label">工资记录</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-lg-2">
+    <div class="card stat-card">
+      <div class="icon text-success"><i class="bi bi-box-seam"></i></div>
+      <div class="number text-success">{{ summary.mat_count }}</div>
+      <div class="label">材料台账</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-lg-2">
+    <div class="card stat-card">
+      <div class="icon text-secondary"><i class="bi bi-calculator"></i></div>
+      <div class="number text-secondary">{{ summary.inc_count + summary.exp_count }}</div>
+      <div class="label">总笔数</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-pie-chart me-2"></i>月度收支趋势</div>
+      <div class="card-body" style="height: 280px;">
+        <canvas id="trendChart"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-wallet2 me-2"></i>财务摘要</div>
+      <div class="card-body">
+        <table class="table table-sm table-borderless mb-0">
+          <tr><td>总收入</td><td class="text-end text-money text-primary">¥ {{ "%.2f"|format(summary.total_inc) }}</td></tr>
+          <tr><td>总支出</td><td class="text-end text-money text-danger">¥ {{ "%.2f"|format(summary.total_exp) }}</td></tr>
+          <tr class="border-top"><td><strong>净利润</strong></td>
+            <td class="text-end text-money {% if summary.profit >= 0 %}text-success{% else %}text-danger{% endif %}">
+              <strong>¥ {{ "%.2f"|format(summary.profit) }}</strong>
+            </td>
+          </tr>
+          <tr><td>利润率</td>
+            <td class="text-end {% if summary.profit_rate > 10 %}text-success{% else %}text-warning{% endif %}">
+              {{ "%.1f"|format(summary.profit_rate) }}%
+            </td>
+          </tr>
+          <tr><td>应收款</td><td class="text-end text-money text-warning">¥ {{ "%.2f"|format(summary.total_ar) }}</td></tr>
+          <tr><td>应付款</td><td class="text-end text-money text-info">¥ {{ "%.2f"|format(summary.total_ap) }}</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+fetch('/api/summary').then(r=>r.json()).then(s=>{
+  fetch('/api/income').then(r=>r.json()).then(data=>{
+    const byMonth = {};
+    data.forEach(d => {
+      if(d.date) {
+        let m = d.date.substring(0,7);
+        byMonth[m] = (byMonth[m]||0) + (d.amount||0);
+      }
+    });
+    const labels = Object.keys(byMonth).sort();
+    const values = labels.map(l=>byMonth[l]);
+    new Chart(document.getElementById('trendChart'), {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: '收入',
+          data: values,
+          borderColor: '#4caf50',
+          backgroundColor: 'rgba(76,175,80,0.08)',
+          fill: true,
+          tension: .3
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { callback: v => '¥'+v.toLocaleString() } } }
+      }
+    });
+  });
+});
+</script>
+{% endblock %}

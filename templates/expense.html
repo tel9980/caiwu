@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block title %}支出管理{% endblock %}
+{% block page_title %}<i class="bi bi-credit-card-2-front me-2"></i>支出管理{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-plus-circle me-2"></i>录入支出</div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('expense_add') }}">
+          <div class="mb-2">
+            <label class="form-label small">日期</label>
+            <input type="date" name="date" class="form-control form-control-sm" value="{{ today().strftime('%Y-%m-%d') }}">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">支出类别</label>
+            <select name="category" class="form-select form-select-sm" required>
+              {% for c in categories %}
+              <option>{{ c }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">金额</label>
+            <input type="number" name="amount" class="form-control form-control-sm" step="0.01" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">供应商</label>
+            <input type="text" name="supplier" class="form-control form-control-sm">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">付款方式</label>
+            <select name="method" class="form-select form-select-sm">
+              <option>银行转账</option><option>微信</option><option>支付宝</option><option>现金</option>
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">备注</label>
+            <input type="text" name="note" class="form-control form-control-sm">
+          </div>
+          <button type="submit" class="btn btn-danger btn-sm w-100 mt-2"><i class="bi bi-check2"></i> 保存</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-list-ul me-2"></i>支出记录</span>
+        <span class="badge bg-danger rounded-pill">{{ data|length }} 笔</span>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead><tr>
+              <th>日期</th><th>类别</th><th>金额</th><th>供应商</th><th>方式</th><th>备注</th>
+            </tr></thead>
+            <tbody>
+              {% for d in data %}
+              <tr>
+                <td>{{ d.date }}</td>
+                <td><span class="badge bg-light text-dark">{{ d.category }}</span></td>
+                <td class="text-money text-danger">¥ {{ "%.2f"|format(d.amount) }}</td>
+                <td>{{ d.supplier }}</td>
+                <td>{{ d.method }}</td>
+                <td class="text-muted small">{{ d.note or '' }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="6" class="text-center text-muted py-4">暂无支出记录</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
