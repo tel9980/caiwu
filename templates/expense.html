@@ -2,74 +2,96 @@
 {% block title %}支出管理{% endblock %}
 {% block page_title %}<i class="bi bi-credit-card-2-front me-2"></i>支出管理{% endblock %}
 {% block content %}
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item"><a class="nav-link active" href="#list" data-bs-toggle="tab"><i class="bi bi-list-ul"></i> 记录列表</a></li>
+  <li class="nav-item"><a class="nav-link" href="#batch" data-bs-toggle="tab"><i class="bi bi-table"></i> 批量录入</a></li>
+  <li class="nav-item"><a class="nav-link" href="#csv" data-bs-toggle="tab"><i class="bi bi-upload"></i> CSV导入</a></li>
+</ul>
+
+<div class="tab-content">
+<div class="tab-pane fade show active" id="list">
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span><i class="bi bi-list-ul me-2"></i>支出记录</span>
+    <div class="d-flex gap-2">
+      <select id="catFilter" class="form-select form-select-sm" style="width:120px">
+        <option value="">全部分类</option>
+        {% for c in categories %}
+        <option value="{{ c }}">{{ c }}</option>
+        {% endfor %}
+      </select>
+      <input type="text" id="searchInput" class="form-control form-control-sm" style="width:140px" placeholder="搜索类别/供应商...">
+      <span class="badge bg-danger rounded-pill d-flex align-items-center" id="recCount">0 笔</span>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive" style="max-height:480px;overflow-y:auto">
+      <table class="table table-hover mb-0" id="expenseTable">
+        <thead class="sticky-top bg-white"><tr>
+          <th style="width:40px">#</th><th>日期</th><th>类别</th><th class="text-end">金额</th><th>供应商</th><th>方式</th><th style="width:50px"></th>
+        </tr></thead>
+        <tbody id="expenseBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="tab-pane fade" id="batch">
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-table me-2"></i>批量录入支出</span>
+    <div>
+      <button class="btn btn-outline-danger btn-sm" onclick="addRow()"><i class="bi bi-plus-lg"></i> 添加行</button>
+      <button class="btn btn-danger btn-sm" onclick="batchSave()"><i class="bi bi-check2-all"></i> 批量保存</button>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive" style="max-height:520px;overflow-y:auto">
+      <table class="table table-sm mb-0" id="batchTable">
+        <thead class="sticky-top bg-white"><tr class="small">
+          <th style="width:120px">日期</th>
+          <th style="width:120px">支出类别</th>
+          <th style="width:130px" class="text-end">金额</th>
+          <th style="width:150px">供应商</th>
+          <th style="width:110px">付款方式</th>
+          <th>备注</th>
+          <th style="width:40px"></th>
+        </tr></thead>
+        <tbody id="batchBody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card-footer text-end" id="batchStatus"></div>
+</div>
+</div>
+
+<div class="tab-pane fade" id="csv">
 <div class="row g-3">
-  <div class="col-md-4">
+  <div class="col-md-6">
     <div class="card">
-      <div class="card-header"><i class="bi bi-plus-circle me-2"></i>录入支出</div>
+      <div class="card-header"><i class="bi bi-download me-2"></i>下载模板</div>
+      <div class="card-body text-center py-4">
+        <i class="bi bi-filetype-csv text-danger" style="font-size:2.5rem"></i>
+        <p class="mt-2 small text-muted">按模板格式整理CSV，一行为一条记录</p>
+        <a href="{{ url_for('export_expense_template') }}" class="btn btn-outline-danger"><i class="bi bi-download"></i> 下载支出导入模板</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-upload me-2"></i>上传CSV</div>
       <div class="card-body">
-        <form method="POST" action="{{ url_for('expense_add') }}">
-          <div class="mb-2">
-            <label class="form-label small">日期</label>
-            <input type="date" name="date" class="form-control form-control-sm" value="{{ today().strftime('%Y-%m-%d') }}">
-          </div>
-          <div class="mb-2">
-            <label class="form-label small">支出类别</label>
-            <select name="category" class="form-select form-select-sm" required>
-              {% for c in categories %}
-              <option>{{ c }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="mb-2">
-            <label class="form-label small">金额</label>
-            <input type="number" name="amount" class="form-control form-control-sm" step="0.01" required>
-          </div>
-          <div class="mb-2">
-            <label class="form-label small">供应商</label>
-            <input type="text" name="supplier" class="form-control form-control-sm">
-          </div>
-          <div class="mb-2">
-            <label class="form-label small">付款方式</label>
-            <select name="method" class="form-select form-select-sm">
-              <option>银行转账</option><option>微信</option><option>支付宝</option><option>现金</option>
-            </select>
-          </div>
-          <div class="mb-2">
-            <label class="form-label small">备注</label>
-            <input type="text" name="note" class="form-control form-control-sm">
-          </div>
-          <button type="submit" class="btn btn-danger btn-sm w-100 mt-2"><i class="bi bi-check2"></i> 保存</button>
+        <form id="csvForm">
+          <input type="file" id="csvFile" accept=".csv" class="form-control form-control-sm mb-2">
+          <button type="submit" class="btn btn-success btn-sm w-100"><i class="bi bi-upload"></i> 导入CSV</button>
         </form>
+        <div id="csvResult" class="mt-2 small"></div>
       </div>
     </div>
   </div>
-  <div class="col-md-8">
-    <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <span><i class="bi bi-list-ul me-2"></i>支出记录</span>
-        <div class="d-flex gap-2">
-          <select id="catFilter" class="form-select form-select-sm" style="width:120px">
-            <option value="">全部分类</option>
-            {% for c in categories %}
-            <option value="{{ c }}">{{ c }}</option>
-            {% endfor %}
-          </select>
-          <input type="text" id="searchInput" class="form-control form-control-sm" style="width:140px" placeholder="搜索类别/供应商...">
-          <span class="badge bg-danger rounded-pill d-flex align-items-center" id="recCount">0 笔</span>
-        </div>
-      </div>
-      <div class="card-body p-0">
-        <div class="table-responsive" style="max-height:480px;overflow-y:auto">
-          <table class="table table-hover mb-0" id="expenseTable">
-            <thead class="sticky-top bg-white"><tr>
-              <th style="width:40px">#</th><th>日期</th><th>类别</th><th>金额</th><th>供应商</th><th>方式</th><th style="width:50px"></th>
-            </tr></thead>
-            <tbody id="expenseBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
+</div>
+</div>
 </div>
 
 <div class="modal fade" id="confirmModal" tabindex="-1">
@@ -88,6 +110,7 @@
 
 {% block scripts %}
 <script>
+const CATEGORIES = [{% for c in categories %}'{{ c }}',{% endfor %}];
 let deleteIndex = -1;
 const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
 
@@ -98,13 +121,12 @@ function loadData() {
   if(q) url += 'q=' + encodeURIComponent(q) + '&';
   if(cat) url += 'cat=' + encodeURIComponent(cat);
   fetch(url).then(r=>r.json()).then(data => {
-    const tbody = document.getElementById('expenseBody');
     document.getElementById('recCount').textContent = data.length + ' 笔';
-    tbody.innerHTML = data.map((d,i) => `<tr>
+    document.getElementById('expenseBody').innerHTML = data.map((d,i) => `<tr>
       <td class="text-muted small">${i+1}</td>
       <td>${d.date ? (d.date.substring ? d.date.substring(0,10) : String(d.date).substring(0,10)) : ''}</td>
       <td><span class="badge bg-light text-dark">${d.category||''}</span></td>
-      <td class="text-money text-danger">¥ ${(d.amount||0).toLocaleString('zh-CN', {minimumFractionDigits:2})}</td>
+      <td class="text-end text-money text-danger">¥ ${(d.amount||0).toLocaleString('zh-CN', {minimumFractionDigits:2})}</td>
       <td>${d.supplier||''}</td>
       <td>${d.method||''}</td>
       <td><button class="btn btn-outline-danger btn-sm py-0 px-1" onclick="del(${i})"><i class="bi bi-trash"></i></button></td>
@@ -124,7 +146,76 @@ document.getElementById('searchInput').oninput = function() {
   searchTimer = setTimeout(loadData, 300);
 };
 document.getElementById('catFilter').onchange = loadData;
-
 loadData();
+
+const todayStr = new Date().toISOString().substring(0,10);
+function addRow(date, category, amount, supplier, method, note) {
+  const tbody = document.getElementById('batchBody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="date" class="form-control form-control-sm" value="${date||todayStr}"></td>
+    <td><select class="form-select form-select-sm">${CATEGORIES.map(c=>'<option>'+c+'</option>').join('')}</select></td>
+    <td><input type="number" class="form-control form-control-sm text-end" value="${amount||''}" placeholder="0.00" step="0.01"></td>
+    <td><input type="text" class="form-control form-control-sm" value="${supplier||''}" placeholder="供应商"></td>
+    <td><select class="form-select form-select-sm"><option>银行转账</option><option>微信</option><option>支付宝</option><option>现金</option></select></td>
+    <td><input type="text" class="form-control form-control-sm" value="${note||''}" placeholder="备注"></td>
+    <td><button class="btn btn-outline-danger btn-sm py-0 px-1" onclick="this.closest('tr').remove()"><i class="bi bi-x"></i></button></td>
+  `;
+  tbody.appendChild(tr);
+}
+addRow();
+
+function batchSave() {
+  const rows = document.querySelectorAll('#batchBody tr');
+  const items = [];
+  rows.forEach(tr => {
+    const inputs = tr.querySelectorAll('input, select');
+    const date = inputs[0].value;
+    const category = inputs[1].value;
+    const amount = parseFloat(inputs[2].value) || 0;
+    if (!date && !amount) return;
+    if (!date || !amount) return;
+    items.push({
+      date, category, amount,
+      supplier: inputs[3].value,
+      method: inputs[4].value,
+      note: inputs[5].value
+    });
+  });
+  if (!items.length) return alert('没有有效数据');
+  const btn = document.querySelector('.btn-danger:not(.btn-outline-danger)');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 保存中...';
+  fetch('/api/expense/batch_add', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(items)})
+    .then(r=>r.json()).then(d => {
+      btn.disabled = false; btn.innerHTML = '<i class="bi bi-check2-all"></i> 批量保存';
+      if (d.ok) {
+        document.getElementById('batchStatus').innerHTML = `<span class="text-success"><i class="bi bi-check-circle"></i> 成功保存 ${d.count} 条</span>`;
+        document.getElementById('batchBody').innerHTML = '';
+        for (let i = 0; i < 3; i++) addRow();
+        loadData();
+      } else {
+        alert(d.error || '保存失败');
+      }
+    });
+}
+
+document.getElementById('csvForm').onsubmit = function(e) {
+  e.preventDefault();
+  const file = document.getElementById('csvFile').files[0];
+  if (!file) return alert('请选择CSV文件');
+  const fd = new FormData();
+  fd.append('file', file);
+  document.getElementById('csvResult').innerHTML = '<span class="text-muted">导入中...</span>';
+  fetch('/api/expense/import_csv', {method:'POST', body:fd})
+    .then(r=>r.json()).then(d => {
+      if (d.ok) {
+        document.getElementById('csvResult').innerHTML = `<span class="text-success"><i class="bi bi-check-circle"></i> 成功导入 ${d.count} 条</span>`;
+        document.getElementById('csvFile').value = '';
+        loadData();
+      } else {
+        document.getElementById('csvResult').innerHTML = `<span class="text-danger"><i class="bi bi-x-circle"></i> ${d.error||'导入失败'}</span>`;
+      }
+    });
+};
 </script>
 {% endblock %}

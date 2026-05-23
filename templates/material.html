@@ -2,16 +2,23 @@
 {% block title %}材料台账{% endblock %}
 {% block page_title %}<i class="bi bi-box-seam me-2"></i>材料台账{% endblock %}
 {% block content %}
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item"><a class="nav-link active" href="#list" data-bs-toggle="tab"><i class="bi bi-list-ul"></i> 材料明细</a></li>
+  <li class="nav-item"><a class="nav-link" href="#batch" data-bs-toggle="tab"><i class="bi bi-table"></i> 批量录入</a></li>
+</ul>
+
+<div class="tab-content">
+<div class="tab-pane fade show active" id="list">
 <div class="card">
   <div class="card-header d-flex justify-content-between align-items-center">
     <span><i class="bi bi-list-ul me-2"></i>材料明细</span>
-    <span class="badge bg-success rounded-pill">{{ data|length }} 条</span>
+    <span class="badge bg-success rounded-pill" id="recCount">{{ data|length }} 条</span>
   </div>
   <div class="card-body p-0">
-    <div class="table-responsive">
+    <div class="table-responsive" style="max-height:480px;overflow-y:auto">
       <table class="table table-hover mb-0">
-        <thead><tr>
-          <th>日期</th><th>材料名称</th><th>规格</th><th>数量</th><th>单价</th><th>金额</th>
+        <thead class="sticky-top bg-white"><tr>
+          <th>日期</th><th>材料名称</th><th>规格</th><th class="text-end">入库</th><th class="text-end">入库金额</th><th class="text-end">出库</th><th class="text-end">出库金额</th><th style="width:50px"></th>
         </tr></thead>
         <tbody>
           {% for d in data %}
@@ -19,16 +26,132 @@
             <td>{{ d.date }}</td>
             <td><strong>{{ d.name }}</strong></td>
             <td>{{ d.spec }}</td>
-            <td>{{ d.qty }}</td>
-            <td class="text-money">¥ {{ "%.2f"|format(d.price) }}</td>
-            <td class="text-money">¥ {{ "%.2f"|format(d.amount) }}</td>
+            <td class="text-end">{{ d.qty if d.qty else '-' }}</td>
+            <td class="text-end text-money">¥ {{ "%.2f"|format(d.amount or 0) }}</td>
+            <td class="text-end">-</td>
+            <td class="text-end text-money">-</td>
+            <td><button class="btn btn-outline-danger btn-sm py-0 px-1" onclick="del({{ loop.index0 }})"><i class="bi bi-trash"></i></button></td>
           </tr>
           {% else %}
-          <tr><td colspan="6" class="text-center text-muted py-4">暂无材料数据</td></tr>
+          <tr><td colspan="8" class="text-center text-muted py-4">暂无材料数据</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
 </div>
+</div>
+
+<div class="tab-pane fade" id="batch">
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-table me-2"></i>批量录入材料</span>
+    <div>
+      <button class="btn btn-outline-success btn-sm" onclick="addRow()"><i class="bi bi-plus-lg"></i> 添加行</button>
+      <button class="btn btn-success btn-sm" onclick="batchSave()"><i class="bi bi-check2-all"></i> 批量保存</button>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive" style="max-height:480px;overflow-y:auto">
+      <table class="table table-sm mb-0">
+        <thead class="sticky-top bg-white"><tr class="small">
+          <th style="width:110px">日期</th>
+          <th style="width:130px">材料名称</th>
+          <th style="width:100px">规格</th>
+          <th style="width:80px" class="text-end">入库数量</th>
+          <th style="width:90px" class="text-end">入库单价</th>
+          <th style="width:90px" class="text-end">出库数量</th>
+          <th style="width:90px" class="text-end">出库单价</th>
+          <th style="width:40px"></th>
+        </tr></thead>
+        <tbody id="batchBody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card-footer text-end" id="batchStatus"></div>
+</div>
+</div>
+</div>
+
+<div class="modal fade" id="confirmModal" tabindex="-1">
+  <div class="modal-dialog modal-sm"><div class="modal-content">
+    <div class="modal-body text-center py-4">
+      <i class="bi bi-exclamation-triangle text-warning" style="font-size:2rem"></i>
+      <p class="mt-2 mb-0">确认删除此条材料记录？</p>
+    </div>
+    <div class="modal-footer justify-content-center border-0 pt-0">
+      <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">取消</button>
+      <button class="btn btn-sm btn-danger" id="confirmDelete"><i class="bi bi-trash"></i> 删除</button>
+    </div>
+  </div></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const MATERIALS = [{% for m in materials %}'{{ m }}',{% endfor %}];
+let deleteIndex = -1;
+const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+
+function del(idx) { deleteIndex = idx; modal.show(); }
+document.getElementById('confirmDelete').onclick = function() {
+  fetch('/api/material/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({index:deleteIndex})})
+    .then(r=>r.json()).then(d=>{ if(d.ok) { modal.hide(); window.location.reload(); } });
+};
+
+const todayStr = new Date().toISOString().substring(0,10);
+function addRow() {
+  const tbody = document.getElementById('batchBody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="date" class="form-control form-control-sm" value="${todayStr}"></td>
+    <td><input type="text" class="form-control form-control-sm" placeholder="材料名称" list="matList"></td>
+    <td><input type="text" class="form-control form-control-sm" placeholder="规格"></td>
+    <td><input type="number" class="form-control form-control-sm text-end" placeholder="0" step="0.01"></td>
+    <td><input type="number" class="form-control form-control-sm text-end" placeholder="0" step="0.01"></td>
+    <td><input type="number" class="form-control form-control-sm text-end" placeholder="0" step="0.01"></td>
+    <td><input type="number" class="form-control form-control-sm text-end" placeholder="0" step="0.01"></td>
+    <td><button class="btn btn-outline-danger btn-sm py-0 px-1" onclick="this.closest('tr').remove()"><i class="bi bi-x"></i></button></td>
+  `;
+  tbody.appendChild(tr);
+}
+addRow();
+
+function batchSave() {
+  const rows = document.querySelectorAll('#batchBody tr');
+  const items = [];
+  rows.forEach(tr => {
+    const inputs = tr.querySelectorAll('input');
+    const name = inputs[1].value.trim();
+    if (!name) return;
+    items.push({
+      date: inputs[0].value,
+      name,
+      spec: inputs[2].value,
+      in_qty: parseFloat(inputs[3].value) || 0,
+      in_price: parseFloat(inputs[4].value) || 0,
+      out_qty: parseFloat(inputs[5].value) || 0,
+      out_price: parseFloat(inputs[6].value) || 0
+    });
+  });
+  if (!items.length) return alert('没有有效数据');
+  const btn = document.querySelector('.btn-success');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 保存中...';
+  fetch('/api/material/batch_add', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(items)})
+    .then(r=>r.json()).then(d => {
+      btn.disabled = false; btn.innerHTML = '<i class="bi bi-check2-all"></i> 批量保存';
+      if (d.ok) {
+        document.getElementById('batchStatus').innerHTML = `<span class="text-success"><i class="bi bi-check-circle"></i> 成功保存 ${d.count} 条</span>`;
+        document.getElementById('batchBody').innerHTML = '';
+        addRow();
+      } else {
+        alert(d.error || '保存失败');
+      }
+    });
+}
+</script>
+<datalist id="matList"></datalist>
+<script>
+MATERIALS.forEach(n => { const o = document.createElement('option'); o.value = n; document.getElementById('matList').appendChild(o); });
+</script>
 {% endblock %}

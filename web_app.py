@@ -12,7 +12,7 @@
     python web_app.py
     或双击 启动WEB系统.bat
 """
-import os, sys, shutil, glob
+import os, sys, shutil, glob, csv, io
 from datetime import datetime, date
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 
@@ -167,6 +167,72 @@ def income_add():
     flash('收入已添加', 'success')
     return redirect(url_for('income'))
 
+@app.route('/api/income/batch_add', methods=['POST'])
+def api_income_batch_add():
+    dm = get_dm()
+    ws = dm.sheet("收入记录")
+    items = request.json
+    count = 0
+    for item in items:
+        row = dm.next_row(ws)
+        dm.write_row(ws, row, [
+            item.get('date', str(date.today())),
+            '',
+            item.get('customer', ''),
+            float(item.get('amount', 0)),
+            item.get('method', '银行转账'),
+            item.get('tax_type', '含税'),
+            '', '',
+            '',
+            item.get('invoice', '否')
+        ])
+        count += 1
+    dm.save()
+    return jsonify({"ok": True, "count": count})
+
+@app.route('/api/income/import_csv', methods=['POST'])
+def api_income_import_csv():
+    dm = get_dm()
+    if 'file' not in request.files:
+        return jsonify({"ok": False, "error": "未上传文件"}), 400
+    f = request.files['file']
+    if not f.filename.endswith('.csv'):
+        return jsonify({"ok": False, "error": "请上传CSV文件"}), 400
+
+    content = f.read().decode('utf-8-sig')
+    reader = csv.reader(io.StringIO(content))
+    ws = dm.sheet("收入记录")
+    count = 0
+    for row_data in reader:
+        if not row_data or not row_data[0].strip():
+            continue
+        if row_data[0].strip() in ('日期', 'date'):
+            continue
+        date_val = row_data[0].strip()
+        customer = row_data[2].strip() if len(row_data) > 2 else ''
+        amount = float(row_data[3]) if len(row_data) > 3 and row_data[3].strip() else 0
+        method = row_data[4].strip() if len(row_data) > 4 else '银行转账'
+        tax_type = row_data[5].strip() if len(row_data) > 5 else '含税'
+        invoice = row_data[9].strip() if len(row_data) > 9 else '否'
+        r = dm.next_row(ws)
+        dm.write_row(ws, r, [date_val, '', customer, amount, method, tax_type, '', '', '', invoice])
+        count += 1
+    dm.save()
+    return jsonify({"ok": True, "count": count})
+
+@app.route('/export/income_template')
+def export_income_template():
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(['日期', '凭证号', '客户名称', '收入金额', '收款方式', '含税/不含税', '税率', '税额', '不含税金额', '开票状态'])
+    w.writerow(['2026-06-01', '', '华鑫铝业', '15000', '银行转账', '含税', '', '', '', '未开票'])
+    w.writerow(['2026-06-02', '', '永达五金', '8000', '微信', '含税', '', '', '', '未开票'])
+    out = io.BytesIO(buf.getvalue().encode('utf-8-sig'))
+    return out.read(), 200, {
+        'Content-Type': 'text/csv; charset=utf-8-sig',
+        'Content-Disposition': 'attachment; filename="收入导入模板.csv"'
+    }
+
 @app.route('/expense')
 def expense():
     dm = get_dm()
@@ -189,6 +255,70 @@ def expense_add():
     dm.save()
     flash('支出已添加', 'success')
     return redirect(url_for('expense'))
+
+@app.route('/api/expense/batch_add', methods=['POST'])
+def api_expense_batch_add():
+    dm = get_dm()
+    ws = dm.sheet("支出记录")
+    items = request.json
+    count = 0
+    for item in items:
+        row = dm.next_row(ws)
+        dm.write_row(ws, row, [
+            item.get('date', str(date.today())),
+            '',
+            item.get('category', ''),
+            float(item.get('amount', 0)),
+            item.get('supplier', ''),
+            item.get('method', '银行转账'),
+            item.get('note', '')
+        ])
+        count += 1
+    dm.save()
+    return jsonify({"ok": True, "count": count})
+
+@app.route('/api/expense/import_csv', methods=['POST'])
+def api_expense_import_csv():
+    dm = get_dm()
+    if 'file' not in request.files:
+        return jsonify({"ok": False, "error": "未上传文件"}), 400
+    f = request.files['file']
+    if not f.filename.endswith('.csv'):
+        return jsonify({"ok": False, "error": "请上传CSV文件"}), 400
+
+    content = f.read().decode('utf-8-sig')
+    reader = csv.reader(io.StringIO(content))
+    ws = dm.sheet("支出记录")
+    count = 0
+    for row_data in reader:
+        if not row_data or not row_data[0].strip():
+            continue
+        if row_data[0].strip() in ('日期', 'date'):
+            continue
+        date_val = row_data[0].strip()
+        category = row_data[2].strip() if len(row_data) > 2 else ''
+        amount = float(row_data[3]) if len(row_data) > 3 and row_data[3].strip() else 0
+        supplier = row_data[4].strip() if len(row_data) > 4 else ''
+        method = row_data[5].strip() if len(row_data) > 5 else '银行转账'
+        note = row_data[6].strip() if len(row_data) > 6 else ''
+        r = dm.next_row(ws)
+        dm.write_row(ws, r, [date_val, '', category, amount, supplier, method, note])
+        count += 1
+    dm.save()
+    return jsonify({"ok": True, "count": count})
+
+@app.route('/export/expense_template')
+def export_expense_template():
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(['日期', '凭证号', '类别', '金额', '供应商', '付款方式', '备注'])
+    w.writerow(['2026-06-01', '', '厂租', '8000', '房东', '银行转账', '6月厂租'])
+    w.writerow(['2026-06-02', '', '原材料', '5000', '化工公司', '银行转账', ''])
+    out = io.BytesIO(buf.getvalue().encode('utf-8-sig'))
+    return out.read(), 200, {
+        'Content-Type': 'text/csv; charset=utf-8-sig',
+        'Content-Disposition': 'attachment; filename="支出导入模板.csv"'
+    }
 
 @app.route('/arap')
 def arap():
@@ -252,11 +382,90 @@ def salary():
     data = get_salary_data(dm)
     return render_template('salary.html', data=data, version=VERSION)
 
+@app.route('/api/salary/batch_add', methods=['POST'])
+def api_salary_batch_add():
+    dm = get_dm()
+    ws = dm.sheet("工资表")
+    items = request.json
+    count = 0
+    for idx, item in enumerate(items):
+        row = dm.next_row(ws)
+        base = float(item.get('base', 0))
+        overtime = float(item.get('overtime', 0))
+        bonus = float(item.get('bonus', 0))
+        gross = base + overtime + bonus
+        social = float(item.get('social', gross * 0.1))
+        accfund = float(item.get('accfund', 0))
+        tax = float(item.get('tax', 0))
+        net = gross - social - accfund - tax
+        dm.write_row(ws, row, [
+            idx + 1, item.get('name', ''),
+            base, overtime, bonus, gross,
+            social, accfund, tax, net
+        ])
+        count += 1
+    dm.save()
+    return jsonify({"ok": True, "count": count})
+
+@app.route('/api/salary/delete', methods=['POST'])
+def api_salary_delete():
+    dm = get_dm()
+    idx = request.json.get('index', -1)
+    ws = dm.sheet("工资表")
+    row = idx + 5
+    if 5 <= row <= dm.last_row(ws):
+        ws.delete_rows(row)
+        dm.save()
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "无效行号"}), 400
+
 @app.route('/material')
 def material():
     dm = get_dm()
     data = get_material_data(dm)
     return render_template('material.html', data=data, materials=MATERIALS, version=VERSION)
+
+@app.route('/api/material/batch_add', methods=['POST'])
+def api_material_batch_add():
+    dm = get_dm()
+    ws = dm.sheet("材料进销存台账")
+    items = request.json
+    count = 0
+    for item in items:
+        row = dm.next_row(ws)
+        in_qty = float(item.get('in_qty', 0))
+        in_price = float(item.get('in_price', 0))
+        out_qty = float(item.get('out_qty', 0))
+        out_price = float(item.get('out_price', 0))
+        in_amount = in_qty * in_price
+        out_amount = out_qty * out_price
+        dm.write_row(ws, row, [
+            item.get('date', str(date.today())),
+            item.get('name', ''),
+            item.get('spec', ''),
+            in_qty if in_qty else None,
+            in_price if in_price else None,
+            in_amount if in_amount else None,
+            out_qty if out_qty else None,
+            out_price if out_price else None,
+            out_amount if out_amount else None,
+            None
+        ])
+        count += 1
+    dm.save()
+    return jsonify({"ok": True, "count": count})
+
+@app.route('/api/material/delete', methods=['POST'])
+def api_material_delete():
+    dm = get_dm()
+    idx = request.json.get('index', -1)
+    ws = dm.sheet("材料进销存台账")
+    row = idx + 4
+    if 4 <= row <= dm.last_row(ws):
+        ws.delete_rows(row)
+        dm.save()
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "无效行号"}), 400
 
 @app.route('/api/summary')
 def api_summary():
