@@ -12,7 +12,7 @@
     python web_app.py
     或双击 启动WEB系统.bat
 """
-import os, sys
+import os, sys, shutil, glob
 from datetime import datetime, date
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 
@@ -21,6 +21,9 @@ from 氧化加工厂财务系统 import (
     DataManager, EXPENSE_CATEGORIES, MATERIALS, SAMPLE_CUSTOMERS,
     VERSION, fmt, calc_income_tax, EXCEL_FILE, DATA_DIR
 )
+
+BACKUP_DIR = os.path.join(DATA_DIR, 'backups')
+os.makedirs(BACKUP_DIR, exist_ok=True)
 
 app = Flask(__name__)
 app.secret_key = 'caiwu_system_2026'
@@ -522,6 +525,65 @@ def export_arap_template():
         'Content-Type': 'text/csv; charset=utf-8-sig',
         'Content-Disposition': 'attachment; filename="应收应付导入模板.csv"'
     }
+
+@app.route('/backup')
+def backup():
+    return render_template('backup.html', version=VERSION)
+
+@app.route('/api/backup/list')
+def api_backup_list():
+    files = []
+    for f in sorted(glob.glob(os.path.join(BACKUP_DIR, '*.xlsx')), key=os.path.getmtime, reverse=True):
+        size = os.path.getsize(f)
+        mtime = datetime.fromtimestamp(os.path.getmtime(f))
+        files.append({
+            "name": os.path.basename(f),
+            "size": size,
+            "size_str": f"{size/1024:.1f} KB" if size < 1024*1024 else f"{size/1024/1024:.2f} MB",
+            "mtime": mtime.strftime('%Y-%m-%d %H:%M:%S')
+        })
+    return jsonify(files)
+
+@app.route('/api/backup/create', methods=['POST'])
+def api_backup_create():
+    ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+    dst = os.path.join(BACKUP_DIR, f'财务数据_{ts}.xlsx')
+    try:
+        # 先保存当前数据
+        dm = get_dm()
+        dm.save()
+        shutil.copy2(EXCEL_FILE, dst)
+        return jsonify({"ok": True, "file": os.path.basename(dst)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route('/api/backup/restore', methods=['POST'])
+def api_backup_restore():
+    name = request.json.get('name', '')
+    if not name:
+        return jsonify({"ok": False, "error": "未指定备份文件"}), 400
+    src = os.path.join(BACKUP_DIR, name)
+    if not os.path.isfile(src):
+        return jsonify({"ok": False, "error": "备份文件不存在"}), 404
+    try:
+        shutil.copy2(src, EXCEL_FILE)
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route('/api/backup/delete', methods=['POST'])
+def api_backup_delete():
+    name = request.json.get('name', '')
+    if not name:
+        return jsonify({"ok": False, "error": "未指定备份文件"}), 400
+    fp = os.path.join(BACKUP_DIR, name)
+    if not os.path.isfile(fp):
+        return jsonify({"ok": False, "error": "备份文件不存在"}), 404
+    try:
+        os.remove(fp)
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 @app.route('/_ah/health')
 def health():

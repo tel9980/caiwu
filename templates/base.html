@@ -89,6 +89,9 @@
     <a href="{{ url_for('material') }}" class="nav-link {% if request.endpoint == 'material' %}active{% endif %}">
       <i class="bi bi-box-seam"></i>材料台账
     </a>
+    <a href="{{ url_for('backup') }}" class="nav-link {% if request.endpoint == 'backup' %}active{% endif %}">
+      <i class="bi bi-cloud-arrow-up"></i>数据备份
+    </a>
   </div>
 
   <div class="main-content">
